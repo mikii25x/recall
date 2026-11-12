@@ -1,4 +1,4 @@
-const CACHE='recall-app-v3';
+const CACHE='recall-app-v4';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>event.waitUntil(
