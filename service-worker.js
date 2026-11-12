@@ -1,4 +1,4 @@
-const CACHE='recall-app-v4';
+const CACHE='recall-app-v5';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>event.waitUntil(
@@ -13,6 +13,11 @@ self.addEventListener('activate',event=>event.waitUntil(
 
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET')return;
+
+  const requestUrl=new URL(event.request.url);
+
+  // Only cache this app's own files. Never cache Supabase API or browser extension requests.
+  if(requestUrl.origin!==self.location.origin)return;
 
   if(event.request.mode==='navigate'){
     event.respondWith(
@@ -29,8 +34,10 @@ self.addEventListener('fetch',event=>{
 
   event.respondWith(
     caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
-      const copy=response.clone();
-      caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+      if(response.ok){
+        const copy=response.clone();
+        caches.open(CACHE).then(cache=>cache.put(event.request,copy));
+      }
       return response;
     }).catch(()=>caches.match('./index.html')))
   );
