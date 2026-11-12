@@ -20,11 +20,13 @@ main{max-width:1000px;margin:auto;padding:18px 22px 60px}.toolbar{display:flex;g
 .section{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:18px;margin-top:20px}.section h2{font-size:16px;margin:0 0 8px}.section p{color:var(--muted);font-size:13px;margin:0 0 12px}.hidden{display:none!important}
 input[type=file]{display:none}.small{font-size:12px;color:var(--muted)}.footer{text-align:center;color:#768196;font-size:12px;margin-top:35px}
 @media(max-width:600px){header{padding:17px 15px 5px}main{padding:14px 15px 40px}.toolbar button{flex:1}.toolbar .spacer{display:none}.stats{gap:7px}.stat{padding:10px}.stat strong{font-size:19px}.flashcard{min-height:330px;padding:24px 19px;border-radius:19px}.rating button{min-width:0;flex:1}.controls button{min-width:0;flex:1}.controls{gap:7px}}
+.auth-panel{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:18px;margin:8px 0 18px}.auth-row{display:flex;gap:9px;flex-wrap:wrap}.auth-row input{flex:1;min-width:180px;background:#0d121c;border:1px solid var(--line);border-radius:11px;padding:11px 13px;color:var(--text)}.auth-status{font-size:13px;color:var(--muted);margin:8px 0 0}.library-list{display:grid;gap:8px;margin-top:12px}.library-item{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#101621;border:1px solid var(--line);border-radius:12px;padding:10px 12px}.library-item span{flex:1;min-width:120px}.library-item small{color:var(--muted)}
 </style>
 </head>
 <body>
 <header><div class="brand"><div class="logo">R</div><div><h1>Recall</h1><p>Study clearly. Remember more.</p></div></div><div class="small" id="installHint">Flashcards</div></header>
 <main>
+<div class="auth-panel"><h2 style="font-size:16px;margin:0 0 8px">Your Recall account</h2><div id="signedOut"><div class="auth-row"><input id="authEmail" type="email" placeholder="Email address" autocomplete="email"><input id="authPassword" type="password" placeholder="Password" autocomplete="current-password"></div><div class="toolbar" style="margin:10px 0 0"><button class="primary" id="signInBtn">Sign in</button><button id="signUpBtn">Create account</button></div></div><div id="signedIn" class="hidden"><div class="auth-row"><span id="accountLabel" class="small"></span><button id="signOutBtn">Sign out</button></div><div class="toolbar" style="margin:10px 0 0"><button class="primary" id="saveDeckBtn">Save current deck to library</button><button id="refreshLibraryBtn">Refresh library</button></div><div id="libraryList" class="library-list"></div></div><p class="auth-status" id="authStatus">Sign in to save decks and sync progress across devices.</p></div>
 <div class="toolbar">
 <button class="primary" id="openBtn">＋ Open deck</button>
 <button id="exportBtn">Export progress</button>
@@ -55,16 +57,32 @@ input[type=file]{display:none}.small{font-size:12px;color:var(--muted)}.footer{t
 </div>
 <p class="small" style="text-align:center">Keyboard: Space flips · ← previous · → next · 1 review · 2 known</p>
 </div>
-<div class="empty" id="emptyState"><h2>Your next study session starts here.</h2><p>Open a JSON flashcard deck to begin. Your review progress saves on this device.</p><button class="primary" id="emptyOpenBtn">Open flashcard deck</button></div>
+<div class="empty" id="emptyState"><h2>Your next study session starts here.</h2><p>Open a JSON flashcard deck or sign in to access your online library.</p><button class="primary" id="emptyOpenBtn">Open flashcard deck</button></div>
 <div class="section"><h2>Deck format</h2><p>Each deck is a separate JSON file. You can keep one deck per subject or topic. Import a new file whenever you have new notes.</p><button id="templateBtn">Download blank deck template</button></div>
-<div class="footer">Recall stores decks and progress locally on this device. Export progress to keep a backup.</div>
+<div class="footer">Recall keeps a local copy and syncs your decks and progress to your private account when signed in.</div>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL='https://pqiqaebgvuoesskdzzjh.supabase.co';
+const SUPABASE_KEY='sb_publishable_XUY3r_WoPHi7Uz-AmQrhuQ_RgTI7xyC';
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
-let deck=null, cards=[], order=[], index=0, flipped=false, ratings={};
+let deck=null, cards=[], order=[], index=0, flipped=false, ratings={}, currentUser=null, currentCloudDeckId=null;
 const STORAGE='recall-v2-progress';
 function loadSaved(){try{ratings=JSON.parse(localStorage.getItem(STORAGE)||'{}')}catch(e){ratings={}}}
-function save(){localStorage.setItem(STORAGE,JSON.stringify(ratings))}
+function save(){localStorage.setItem(STORAGE,JSON.stringify(ratings));if(currentUser)syncProgress()}
+let syncTimer=null;
+function setAuthStatus(message){$('authStatus').textContent=message}
+async function syncProgress(){if(!currentUser)return;clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{const r=await supabaseClient.from('recall_progress').upsert({user_id:currentUser.id,progress:ratings,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(r.error)setAuthStatus('Cloud sync issue: '+r.error.message)},700)}
+async function loadCloudProgress(){const r=await supabaseClient.from('recall_progress').select('progress').eq('user_id',currentUser.id).maybeSingle();if(r.error){setAuthStatus('Could not load progress: '+r.error.message);return}if(r.data&&r.data.progress){ratings=r.data.progress;localStorage.setItem(STORAGE,JSON.stringify(ratings))}render()}
+function updateAuthUI(){$('signedOut').classList.toggle('hidden',!!currentUser);$('signedIn').classList.toggle('hidden',!currentUser);$('accountLabel').textContent=currentUser?'Signed in as '+currentUser.email:'';$('saveDeckBtn').disabled=!deck}
+async function loadLibrary(){if(!currentUser)return;const r=await supabaseClient.from('recall_decks').select('id,title,created_at').order('created_at',{ascending:false});if(r.error){setAuthStatus('Could not load library: '+r.error.message);return}const list=$('libraryList');list.innerHTML='';if(!r.data.length){list.textContent='Your library is empty. Save a deck to add it here.';return}r.data.forEach(item=>{const row=document.createElement('div');row.className='library-item';const name=document.createElement('span');name.textContent=item.title;const date=document.createElement('small');date.textContent=new Date(item.created_at).toLocaleDateString();const open=document.createElement('button');open.textContent='Open';open.onclick=()=>openCloudDeck(item.id);const del=document.createElement('button');del.textContent='Delete';del.className='bad';del.onclick=()=>deleteCloudDeck(item.id,item.title);row.appendChild(name);row.appendChild(date);row.appendChild(open);row.appendChild(del);list.appendChild(row)})}
+async function openCloudDeck(id){const r=await supabaseClient.from('recall_decks').select('id,title,deck_data').eq('id',id).single();if(r.error){setAuthStatus('Could not open deck: '+r.error.message);return}try{openDeck(r.data.deck_data);currentCloudDeckId=id;setAuthStatus('Opened '+r.data.title+' from your online library.')}catch(e){setAuthStatus('Invalid deck: '+e.message)}}
+async function saveDeckToCloud(){if(!currentUser||!deck)return;const data={title:deck.title,description:deck.description||'',cards:cards.map(c=>({id:c.id,front:c.front,back:c.back}))};const r=await supabaseClient.from('recall_decks').insert({user_id:currentUser.id,title:deck.title,deck_data:data}).select('id').single();if(r.error){setAuthStatus('Could not save deck: '+r.error.message);return}currentCloudDeckId=r.data.id;await loadLibrary();setAuthStatus('Deck saved to your online library.')}
+async function deleteCloudDeck(id,title){if(!confirm('Delete '+title+' from your online library?'))return;const r=await supabaseClient.from('recall_decks').delete().eq('id',id);if(r.error){setAuthStatus('Could not delete deck: '+r.error.message);return}if(currentCloudDeckId===id)currentCloudDeckId=null;await loadLibrary();setAuthStatus('Deck deleted.')}
+async function signIn(){const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!email||!password){setAuthStatus('Enter your email and password.');return}setAuthStatus('Signing in...');const r=await supabaseClient.auth.signInWithPassword({email,password});if(r.error)setAuthStatus(r.error.message)}
+async function signUp(){const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!email||!password){setAuthStatus('Enter your email and password.');return}if(password.length<8){setAuthStatus('Use a password with at least 8 characters.');return}setAuthStatus('Creating account...');const r=await supabaseClient.auth.signUp({email,password});if(r.error)setAuthStatus(r.error.message);else if(!r.data.session)setAuthStatus('Account created. Check your email for a confirmation link, then sign in.');else setAuthStatus('Account created.')}
+async function handleSession(session){currentUser=session?session.user:null;updateAuthUI();if(currentUser){setAuthStatus('Loading your library and progress...');await loadCloudProgress();await loadLibrary();setAuthStatus('Your decks and progress sync to your account.')}else{currentCloudDeckId=null;setAuthStatus('Sign in to save decks and sync progress across devices.')}}
 function due(c){const r=ratings[cardKey(c)];return !r||!r.nextReview||r.nextReview<=Date.now()}
 function cardKey(c){return (deck&&deck.title||'deck')+'::'+c.id}
 function getDueCount(){return cards.filter(due).length}
@@ -95,11 +113,12 @@ function rate(known){
  $('dueStat').textContent=getDueCount();move(index===cards.length-1?0:1);
 }
 function openDeck(data){
- if(!data||!Array.isArray(data.cards))throw new Error('The file must contain a "cards" array.');
- const clean=data.cards.map((c,i)=>{if(!c.front||!c.back)throw new Error('Every card needs a front and back.');return {id:String(c.id||i+1),front:String(c.front),back:String(c.back)}});
- deck={title:String(data.title||'Untitled deck')};cards=clean;order=cards.map((_,i)=>i);index=0;flipped=false;render();
+ if(!data||!Array.isArray(data.cards))throw new Error('The file must contain a cards array.');
+ const clean=data.cards.map((c,i)=>{const front=c.front||c.question,back=c.back||c.answer;if(!front||!back)throw new Error('Every card needs front/back or question/answer.');return {id:String(c.id||i+1),front:String(front),back:String(back)}});
+ deck={title:String(data.title||'Untitled deck'),description:String(data.description||'')};cards=clean;currentCloudDeckId=null;order=cards.map((_,i)=>i);index=0;flipped=false;render();updateAuthUI();
 }
 $('openBtn').onclick=$('emptyOpenBtn').onclick=()=>$('fileInput').click();
+$('signInBtn').onclick=signIn;$('signUpBtn').onclick=signUp;$('signOutBtn').onclick=async()=>{await supabaseClient.auth.signOut()};$('saveDeckBtn').onclick=saveDeckToCloud;$('refreshLibraryBtn').onclick=loadLibrary;
 $('fileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{openDeck(JSON.parse(await f.text()))}catch(err){alert('Could not open deck: '+err.message)}e.target.value=''};
 $('flashcard').onclick=flip;$('flashcard').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip()}};
 $('prevBtn').onclick=()=>move(-1);$('nextBtn').onclick=()=>move(1);
@@ -111,6 +130,8 @@ $('templateBtn').onclick=()=>{const data={title:'A-Level Economics - Example top
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
 document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName))return;if(e.code==='Space'){e.preventDefault();flip()}if(e.key==='ArrowRight')move(1);if(e.key==='ArrowLeft')move(-1);if(e.key==='1')rate(false);if(e.key==='2')rate(true)});
 loadSaved();
+supabaseClient.auth.getSession().then(({data})=>handleSession(data.session));
+supabaseClient.auth.onAuthStateChange((_event,session)=>{handleSession(session)});
 if('serviceWorker' in navigator && location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
 if(window.matchMedia('(display-mode: standalone)').matches)$('installHint').textContent='Installed app';
 </script>
