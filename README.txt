@@ -40,6 +40,6 @@ DECK JSON FORMAT
 
 You can include an optional id field on each card. Each card needs front and back.
 
-PROGRESS
+PROGRESSS
 Review progress is saved locally in each browser/device. Use Export progress to back it up.
 This first version does not synchronise progress automatically between iPad and Windows.
