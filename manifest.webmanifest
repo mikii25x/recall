@@ -1,0 +1,11 @@
+{
+  "name": "Recall Flashcards",
+  "short_name": "Recall",
+  "description": "A personal flashcard app for Windows and iPad.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c0f16",
+  "theme_color": "#10131b",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
