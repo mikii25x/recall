@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10131b">
+<meta name="description" content="A personal flashcard app for Windows and iPad.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Recall</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0f16;--panel:#151a25;--panel2:#1c2331;--line:#2b3445;--text:#f3f5fa;--muted:#9ca8bb;--accent:#9b8cff;--good:#53d6a0;--bad:#ff7888}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1b2030 0,#0c0f16 55%);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+button,input{font:inherit}button{cursor:pointer;border:1px solid var(--line);border-radius:13px;padding:11px 16px;background:var(--panel2);color:var(--text);font-weight:600}button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}button.primary{background:var(--accent);border-color:var(--accent);color:#11111a}button.good{border-color:#28684f;color:var(--good)}button.bad{border-color:#713744;color:var(--bad)}button:disabled{opacity:.35;cursor:not-allowed}
+header{max-width:1000px;margin:auto;padding:24px 22px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{display:flex;align-items:center;gap:11px}.logo{width:39px;height:39px;border-radius:12px;background:linear-gradient(135deg,#b6aaff,#7968dc);display:grid;place-items:center;color:#171326;font-weight:900;font-size:21px}.brand h1{font-size:22px;margin:0;letter-spacing:-.5px}.brand p{margin:0;color:var(--muted);font-size:12px}
+main{max-width:1000px;margin:auto;padding:18px 22px 60px}.toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin:12px 0 22px}.toolbar .spacer{flex:1}.deck-name{color:var(--muted);font-size:14px;margin:0 0 8px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}.stat{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:13px 16px}.stat strong{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+.progress{height:6px;background:#252d3c;border-radius:99px;overflow:hidden;margin:0 0 18px}.progress div{height:100%;background:var(--accent);width:0;transition:width .2s}
+.card-wrap{perspective:1200px;max-width:720px;margin:0 auto}.flashcard{width:100%;min-height:310px;border:1px solid #343e52;border-radius:24px;background:linear-gradient(145deg,#1b2230,#141923);display:flex;align-items:center;justify-content:center;text-align:center;padding:34px;cursor:pointer;box-shadow:0 22px 60px #0005;transition:transform .2s,border-color .2s}.flashcard:hover{border-color:#7770bd}.card-inner{width:100%}.side-label{text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-size:11px;font-weight:800;margin-bottom:20px}.card-text{font-size:clamp(21px,4vw,31px);line-height:1.35;font-weight:650;white-space:pre-wrap;overflow-wrap:anywhere}.tap-hint{color:var(--muted);font-size:12px;margin-top:24px}
+.controls{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0}.controls button{min-width:105px}.counter{text-align:center;color:var(--muted);font-size:13px;min-width:100px}.rating{display:flex;justify-content:center;gap:12px;margin:14px 0 24px}.rating button{min-width:145px;padding:13px}.empty{max-width:720px;margin:25px auto;padding:30px;text-align:center;border:1px dashed var(--line);border-radius:20px;color:var(--muted)}.empty h2{color:var(--text)}
+.section{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:18px;margin-top:20px}.section h2{font-size:16px;margin:0 0 8px}.section p{color:var(--muted);font-size:13px;margin:0 0 12px}.hidden{display:none!important}
+input[type=file]{display:none}.small{font-size:12px;color:var(--muted)}.footer{text-align:center;color:#768196;font-size:12px;margin-top:35px}
+@media(max-width:600px){header{padding:17px 15px 5px}main{padding:14px 15px 40px}.toolbar button{flex:1}.toolbar .spacer{display:none}.stats{gap:7px}.stat{padding:10px}.stat strong{font-size:19px}.flashcard{min-height:330px;padding:24px 19px;border-radius:19px}.rating button{min-width:0;flex:1}.controls button{min-width:0;flex:1}.controls{gap:7px}}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="logo">R</div><div><h1>Recall</h1><p>Study clearly. Remember more.</p></div></div><div class="small" id="installHint">Flashcards</div></header>
+<main>
+<div class="toolbar">
+<button class="primary" id="openBtn">＋ Open deck</button>
+<button id="exportBtn">Export progress</button>
+<button id="shuffleBtn">Shuffle</button>
+<div class="spacer"></div>
+<button id="resetBtn">Reset session</button>
+<input id="fileInput" type="file" accept=".json,application/json">
+</div>
+<p class="deck-name" id="deckName">No deck loaded</p>
+<div id="studyArea" class="hidden">
+<div class="stats">
+<div class="stat"><strong id="totalStat">0</strong><span>Cards in deck</span></div>
+<div class="stat"><strong id="knownStat">0</strong><span>Marked known</span></div>
+<div class="stat"><strong id="dueStat">0</strong><span>Due for review</span></div>
+</div>
+<div class="progress"><div id="progressBar"></div></div>
+<div class="card-wrap">
+<div class="flashcard" id="flashcard" role="button" tabindex="0" aria-label="Flashcard. Tap to reveal answer">
+<div class="card-inner"><div class="side-label" id="sideLabel">Question</div><div class="card-text" id="cardText"></div><div class="tap-hint" id="tapHint">Tap or press Space to reveal</div></div>
+</div>
+</div>
+<div class="controls">
+<button id="prevBtn">← Previous</button><div class="counter" id="counter">0 / 0</div><button id="nextBtn">Next →</button>
+</div>
+<div class="rating">
+<button class="bad" id="missBtn">× Need to review</button>
+<button class="good" id="knowBtn">✓ I knew it</button>
+</div>
+<p class="small" style="text-align:center">Keyboard: Space flips · ← previous · → next · 1 review · 2 known</p>
+</div>
+<div class="empty" id="emptyState"><h2>Your next study session starts here.</h2><p>Open a JSON flashcard deck to begin. Your review progress saves on this device.</p><button class="primary" id="emptyOpenBtn">Open flashcard deck</button></div>
+<div class="section"><h2>Deck format</h2><p>Each deck is a separate JSON file. You can keep one deck per subject or topic. Import a new file whenever you have new notes.</p><button id="templateBtn">Download blank deck template</button></div>
+<div class="footer">Recall stores decks and progress locally on this device. Export progress to keep a backup.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let deck=null, cards=[], order=[], index=0, flipped=false, ratings={};
+const STORAGE='recall-v2-progress';
+function loadSaved(){try{ratings=JSON.parse(localStorage.getItem(STORAGE)||'{}')}catch(e){ratings={}}}
+function save(){localStorage.setItem(STORAGE,JSON.stringify(ratings))}
+function due(c){const r=ratings[cardKey(c)];return !r||!r.nextReview||r.nextReview<=Date.now()}
+function cardKey(c){return (deck&&deck.title||'deck')+'::'+c.id}
+function getDueCount(){return cards.filter(due).length}
+function render(){
+ if(!deck){$('studyArea').classList.add('hidden');$('emptyState').classList.remove('hidden');return}
+ $('studyArea').classList.remove('hidden');$('emptyState').classList.add('hidden');
+ $('deckName').textContent=deck.title||'Untitled deck';
+ $('totalStat').textContent=cards.length;
+ $('knownStat').textContent=cards.filter(c=>ratings[cardKey(c)]&&ratings[cardKey(c)].known).length;
+ $('dueStat').textContent=getDueCount();
+ $('progressBar').style.width=(cards.length?100*(index+1)/cards.length:0)+'%';
+ if(!cards.length){$('cardText').textContent='This deck has no cards.';return}
+ const c=cards[order[index]];
+ $('sideLabel').textContent=flipped?'Answer':'Question';
+ $('cardText').textContent=flipped?c.back:c.front;
+ $('tapHint').textContent=flipped?'Tap to show question':'Tap or press Space to reveal';
+ $('counter').textContent=(index+1)+' / '+cards.length;
+ $('prevBtn').disabled=index===0;$('nextBtn').disabled=index===cards.length-1;
+}
+function flip(){if(!cards.length)return;flipped=!flipped;render()}
+function move(n){index=Math.max(0,Math.min(cards.length-1,index+n));flipped=false;render()}
+function rate(known){
+ if(!cards.length)return;
+ const c=cards[order[index]], key=cardKey(c), old=ratings[key]||{interval:0};
+ let interval=known?(old.interval?Math.min(old.interval*2,30):1):0;
+ ratings[key]={known:known,interval:interval,lastReview:Date.now(),nextReview:Date.now()+interval*86400000};
+ save();$('knownStat').textContent=cards.filter(x=>ratings[cardKey(x)]&&ratings[cardKey(x)].known).length;
+ $('dueStat').textContent=getDueCount();move(index===cards.length-1?0:1);
+}
+function openDeck(data){
+ if(!data||!Array.isArray(data.cards))throw new Error('The file must contain a "cards" array.');
+ const clean=data.cards.map((c,i)=>{if(!c.front||!c.back)throw new Error('Every card needs a front and back.');return {id:String(c.id||i+1),front:String(c.front),back:String(c.back)}});
+ deck={title:String(data.title||'Untitled deck')};cards=clean;order=cards.map((_,i)=>i);index=0;flipped=false;render();
+}
+$('openBtn').onclick=$('emptyOpenBtn').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{openDeck(JSON.parse(await f.text()))}catch(err){alert('Could not open deck: '+err.message)}e.target.value=''};
+$('flashcard').onclick=flip;$('flashcard').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip()}};
+$('prevBtn').onclick=()=>move(-1);$('nextBtn').onclick=()=>move(1);
+$('missBtn').onclick=()=>rate(false);$('knowBtn').onclick=()=>rate(true);
+$('shuffleBtn').onclick=()=>{for(let i=order.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]]}index=0;flipped=false;render()};
+$('resetBtn').onclick=()=>{index=0;flipped=false;render()};
+$('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),progress:ratings},null,2)],{type:'application/json'});download(blob,'recall-progress.json')};
+$('templateBtn').onclick=()=>{const data={title:'A-Level Economics - Example topic',cards:[{front:'What is opportunity cost?',back:'The next best alternative forgone.'},{front:'What does ceteris paribus mean?',back:'All other factors remain constant.'}]};download(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),'flashcards-template.json')};
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
+document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName))return;if(e.code==='Space'){e.preventDefault();flip()}if(e.key==='ArrowRight')move(1);if(e.key==='ArrowLeft')move(-1);if(e.key==='1')rate(false);if(e.key==='2')rate(true)});
+loadSaved();
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
+if(window.matchMedia('(display-mode: standalone)').matches)$('installHint').textContent='Installed app';
+</script>
+</body></html>
